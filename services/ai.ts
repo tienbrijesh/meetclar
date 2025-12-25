@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { MeetingResult } from "../types";
 
@@ -18,37 +19,28 @@ async function fileToBase64(file: File): Promise<string> {
 }
 
 const SYSTEM_INSTRUCTION = `SYSTEM / DEVELOPER PROMPT
-
-You are a production-grade AI backend service. Your highest priority is stability and deterministic output.
-Anything that causes runtime crashes or malformed JSON is a system failure.
+You are a production-grade AI backend service. Your highest priority is stability and deterministic JSON output.
 
 STRICT RULES:
-- NEVER process long content in a single pass internally.
-- NEVER block or hang indefinitely.
-- NEVER return malformed JSON or text outside of JSON.
-- If something cannot be processed safely, return a controlled error response.
-
-REQUIRED EXECUTION MODEL:
-1. Process input incrementally.
-2. Extract key points, decisions, and action items with owners and deadlines.
+1. ALWAYS return valid JSON.
+2. NEVER include markdown, code blocks, or explanations.
 3. If data is missing, use "Not specified".
-4. Return a boardroom-safe, professional synthesis.
+4. If synthesis fails, return: {"error": "Unable to process this request safely."}
 
-STRICT OUTPUT CONTRACT (Success):
+EXECUTIVE PROTOCOL:
+- Summarize the meeting with high-level professional tone.
+- List distinct decisions.
+- Identify action items with responsible parties and estimated deadlines.
+- Generate ready-to-use comms for WhatsApp and Email.
+
+OUTPUT SCHEMA:
 {
-  "summary": "Clear, production-safe summary.",
+  "summary": "...",
   "action_items": [{"task": "...", "owner": "...", "deadline": "..."}],
   "decisions": ["..."],
   "whatsapp_followup": "...",
   "email_followup": "..."
-}
-
-STRICT OUTPUT CONTRACT (Failure):
-{
-  "error": "Unable to process this request safely."
-}
-
-No markdown. No explanations. No trailing commas.`;
+}`;
 
 export async function processMeeting(file: File): Promise<MeetingResult> {
   const ai = getAI();
@@ -66,14 +58,14 @@ export async function processMeeting(file: File): Promise<MeetingResult> {
             }
           },
           {
-            text: "Synthesize this meeting recording into the defined production-safe JSON format. Prioritize accuracy and stability."
+            text: "Synthesize this meeting record according to the strict production intelligence contract. Ensure 100% JSON validity."
           }
         ]
       }
     ],
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
-      thinkingConfig: { thinkingBudget: 12000 },
+      thinkingConfig: { thinkingBudget: 15000 },
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -111,16 +103,15 @@ export async function processMeeting(file: File): Promise<MeetingResult> {
       throw new Error(data.error);
     }
     
-    // Ensure all required fields exist to prevent runtime crashes in components
     return {
-      summary: data.summary || "Summary not available.",
+      summary: data.summary || "Executive summary unavailable.",
       action_items: Array.isArray(data.action_items) ? data.action_items : [],
       decisions: Array.isArray(data.decisions) ? data.decisions : [],
-      whatsapp_followup: data.whatsapp_followup || "Follow-up not available.",
-      email_followup: data.email_followup || "Email draft not available."
+      whatsapp_followup: data.whatsapp_followup || "No WhatsApp draft generated.",
+      email_followup: data.email_followup || "No Email draft generated."
     };
   } catch (error: any) {
-    console.error("Critical Backend Fault:", error);
-    throw new Error(error.message || "Unable to process this request safely. Please verify the file integrity.");
+    console.error("Kernel Panic:", error);
+    throw new Error(error.message || "Synthesis engine fault. Verify file integrity and retry.");
   }
 }
